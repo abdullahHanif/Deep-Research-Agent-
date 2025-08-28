@@ -35,7 +35,7 @@ def tavily_deep_search(query: str) -> str:
         response = tavily_client.search(query=query, search_depth="basic", max_results=10)
 
         if not response or not response.get('results'):
-            """ [Agent Step: Tool Output] No relevant results found for this query.")"""
+            """ [Agent Step: Tool Output] No relevant results found for this query."""
             return "No information found."
 
         search_results_summary = ""
@@ -51,45 +51,59 @@ def tavily_deep_search(query: str) -> str:
         return f"Error encountered during search: {str(e)}"
 
 
-def run_deep_search_agent():
-    """Main function to run the deep search agent using OpenAI Agents SDK."""
-    print("🚀 Deep Search Agent Initialized and ready!")
+def run_multi_agent_team():
+    """Main function to run the multi-agent team using OpenAI Agents SDK."""
+    print("🚀 Multi-Agent Team Initialized and ready!")
     print("-----------------------------------------------------\n")
 
     llm_model: OpenAIChatCompletionsModel = OpenAIChatCompletionsModel(
-        model="gemini-2.5-flash",
+        model="gemini-1.5-flash",
         openai_client=external_client
     )
 
-    agent = Agent(
-        name="Deep Search AI Assistant",
+    researcher_agent = Agent(
+        name="Researcher Agent",
         instructions=(
-            "You are an intelligent deep search assistant. Your primary role is to accurately answer user queries "
-            "by leveraging the `tavily_deep_search` tool to get the most up-to-date and comprehensive information. "
-            "Always use the `tavily_deep_search` tool when information beyond your training data is needed or when "
-            "the user specifically asks for the latest information. "
-            "After performing the search, synthesize the information into a clear, concise, and informative answer. "
-            "Always provide the most relevant and latest information available from the search results."
+            "You are a researcher agent. Your job is to use the `tavily_deep_search` tool to find the most relevant and up-to-date information on a given topic. "
+            "Provide a detailed summary of your findings."
         ),
         tools=[tavily_deep_search],
         model=llm_model
     )
 
+    writer_agent = Agent(
+        name="Writer Agent",
+        instructions=(
+            "You are a writer agent. Your job is to take the research findings from the Researcher Agent and write a clear, concise, and easy-to-understand summary for the user. "
+            "Do not add any new information, only use what is provided in the research findings."
+        ),
+        model=llm_model
+    )
+
 
     while True:
-        user_query = input("💬 Enter your query for the agent (or type 'exit' to quit): ")
+        user_query = input("💬 Enter your query for the agent team (or type 'exit' to quit): ")
         if user_query.lower() == 'exit':
-            print("👋 Exiting Deep Search Agent. Goodbye!")
+            print("👋 Exiting Multi-Agent Team. Goodbye!")
             break
 
         try:
-            result = Runner.run_sync(agent, user_query)
-            print(f"[{agent.name} Response] ")
-            print(result.final_output)
+            # 1. Run the Researcher Agent
+            research_result = Runner.run_sync(researcher_agent, user_query)
+            print(f"[{researcher_agent.name} Response] ")
+            print(research_result.final_output)
             print("--------------------------------\n")
+
+            # 2. Run the Writer Agent
+            writer_prompt = f"Based on the following research, please write a summary for the user:\n\n{research_result.final_output}"
+            final_result = Runner.run_sync(writer_agent, writer_prompt)
+            print(f"[{writer_agent.name} Response] ")
+            print(final_result.final_output)
+            print("--------------------------------\n")
+
 
         except Exception as e:
             print(f"❌ [Agent Error] An unexpected error occurred during the agent's execution: {e}")
 
 if __name__ == "__main__":
-    run_deep_search_agent()
+    run_multi_agent_team()
