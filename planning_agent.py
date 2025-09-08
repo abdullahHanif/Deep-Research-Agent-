@@ -1,6 +1,7 @@
 from agents import Agent, Runner, AsyncOpenAI, function_tool, OpenAIChatCompletionsModel
+from research_agents import ResearchAgent
 
-def run_planning_agent(external_client: AsyncOpenAI):
+def run_planning_agent(external_client: AsyncOpenAI , user_query: str):
     print("🚀 Planning Agent Initialized and ready!")
     print("-----------------------------------------------------\n")
 
@@ -12,24 +13,21 @@ def run_planning_agent(external_client: AsyncOpenAI):
     planning_agent = Agent(
         name="Deep search planner",
         instructions=(
-            "You are a researcher agent. Your job is to use the `tavily_deep_search` tool to find the most relevant and up-to-date information on a given topic. "
-            "Provide a detailed summary of your findings."
+            "You are planning agent in an advanced Research Agent designed to perform deep, structured research like a professional analyst, Your task is to break the user’s question into smaller, concrete research tasks. For Example: “Compare renewable energy policies in 3 countries” → Tasks: “Country A energy policy,” “Country B energy policy,” “Country C energy policy.”"
         ),
         model=llm_model
     )
 
-    while True:
-        user_query = input("💬 Enter your query for the agent team (or type 'exit' to quit): ")
-        if user_query.lower() == 'exit':
-            print("👋 Exiting Multi-Agent Team. Goodbye!")
-            break
+    try:
+        # 1. Run the Planning Agent
+        planning_result = Runner.run_sync(planning_agent, user_query)
+        print(f"[{planning_agent.name} Response] ")
+        print(planning_result.final_output)
+        print("--------------------------------\n")
+        # 2. Run the Research Agent with the output from the Planning Agent
+        research_agents = ResearchAgent(external_client)
+        research_agents.run_main_research_agent(planning_result.final_output)
 
-        try:
-            # 1. Run the Researcher Agent
-            research_result = Runner.run_sync(planning_agent, user_query)
-            print(f"[{planning_agent.name} Response] ")
-            print(research_result.final_output)
-            print("--------------------------------\n")
 
-        except Exception as e:
-            print(f"❌ [Agent Error] An unexpected error occurred during the agent's execution: {e}")
+    except Exception as e:
+        print(f"❌ [Agent Error] An unexpected error occurred during the {planning_agent.name} agent's execution: {e}")
